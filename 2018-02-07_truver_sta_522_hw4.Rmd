@@ -1,0 +1,81 @@
+---
+title: "STA 522 HW4 (Stratified Sampling)"
+author: "Daniel Truver"
+date: "2/4/2018"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#### (1) Golf Data  
+
+```{r golfSurvey, message=FALSE, warning=FALSE}
+library(survey)
+golfdata = read.csv("golfsrs.csv")
+n.golf1 = 120
+N.golf1 = 14938
+fpc.golf1 = rep(1 - (n.golf1/N.golf1), n.golf1)
+wts.golf1 = N.golf1/n.golf1 
+svy.golf1 = svydesign(~1, weights = wts.golf1, fpc = fpc.golf1, data = golfdata)
+```
+
+##### (1)(a) Back-tee Yardage
+
+```{r estimateBackteeYardage}
+mean.golf1 = svymean(~backtee, svy.golf1)
+confmean.golf1 = confint(svymean(~backtee, svy.golf1), level = 0.95)
+```
+
+```{r presentMeanConfint, echo=FALSE}
+table_1a = data.frame(mean  = mean.golf1[1],
+                      lwr = confmean.golf1[1], 
+                      upr = confmean.golf1[2])
+knitr::kable(table_1a, 
+             col.names = c("Estimate of Mean", "2.5% Quantile", "97.5% Quantile"),
+             caption = "Estimate of Mean Back-tee Yardage on US Golf Courses",
+             digits = 2, row.names = FALSE)
+```
+
+##### (b) Pros Available  
+
+```{r proProportion, message=FALSE, warning=FALSE}
+library(dplyr)
+golfdata = golfdata %>%
+  mutate(pro = ifelse(pro == "y", 1, 0))
+confprop.golf1 = svyciprop(design = svy.golf1, level = 0.95, formula = ~pro)
+proppro.golf1 = confprop.golf1[1]
+propconfint.golf1 = confprop.golf1 %>%
+  attr("ci")
+```
+
+```{r presentPropConfint, echo=FALSE}
+table_1b = data.frame(mean = proppro.golf1, 
+                      lwr = propconfint.golf1[1],
+                      upr = propconfint.golf1[2])
+knitr::kable(table_1b, 
+             col.names = c("Proportion Estimate", "2.5% Quantile", "97.5% Quantile"),
+             caption = "Estimate of Proportion of Golf Courses with Pros Available", 
+             digits = 3, row.names = FALSE)
+```  
+
+
+##### (c) Average Fee for 9 Weekday Holes  
+
+```{r weekdayHoleFees}
+meanwkday9.golf1 = svymean(~wkday9, svy.golf1)
+confwkday9.golf1 = confint(svymean(~wkday9, svy.golf1), level = .95)
+```
+
+```{r presentWkday9, echo=FALSE}
+table_1c = data.frame(mean = meanwkday9.golf1[1],
+                      lwr = confwkday9.golf1[1],
+                      upr = confwkday9.golf1[2])
+knitr::kable(table_1c,
+             col.names = c("Mean Estimate", "2.5% Quantile", "97.5% Quantile"),
+             caption = "Estimate of Mean Weekday 9 Hole Green Fees",
+             digits = 2, row.names = FALSE)
+```  
+
+
