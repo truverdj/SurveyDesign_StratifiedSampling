@@ -42,8 +42,6 @@ knitr::kable(table_1a,
 
 ```{r proProportion, message=FALSE, warning=FALSE}
 library(dplyr)
-golfdata = golfdata %>%
-  mutate(pro = ifelse(pro == "y", 1, 0))
 confprop.golf1 = svyciprop(design = svy.golf1, level = 0.95, formula = ~pro)
 proppro.golf1 = confprop.golf1[1]
 propconfint.golf1 = confprop.golf1 %>%
