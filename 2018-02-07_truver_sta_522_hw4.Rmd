@@ -79,3 +79,19 @@ knitr::kable(table_1c,
 ```  
 
 
+##### (d) 
+
+```{r wkdayVSwkend}
+diff.golf1 = svymean(~I(wkday9-wkend9), svy.golf1)
+confdiff.golf1 = confint(diff.golf1, level = .95)
+```
+
+```{r presentDiff}
+table_1d = data.frame(diff.golf1[1],
+                      confdiff.golf1[1],
+                      confdiff.golf1[2])
+knitr::kable(table_1d, 
+             col.names = c("Mean Estimate", "2.5% Quantile", "97.5% Quantile"),
+             caption = "Difference Between Weekday 9 Fees, Weekend 9 Fees (wkday - wkend)",
+             digits = 2, row.names = FALSE)
+```
