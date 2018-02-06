@@ -16,7 +16,7 @@ library(survey)
 golfdata = read.csv("golfsrs.csv")
 n.golf1 = 120
 N.golf1 = 14938
-fpc.golf1 = rep(1 - (n.golf1/N.golf1), n.golf1)
+fpc.golf1 = rep(N.golf1, n.golf1)
 wts.golf1 = N.golf1/n.golf1 
 svy.golf1 = svydesign(~1, weights = wts.golf1, fpc = fpc.golf1, data = golfdata)
 ```
@@ -93,3 +93,151 @@ knitr::kable(table_1d,
              caption = "Difference Between Weekday 9 Fees, Weekend 9 Fees (wkday - wkend)",
              digits = 2, row.names = FALSE)
 ```
+
+#### (2) Lohr, Chapter 3 Problem 8  
+
+##### (a) all households interviewed in person
+
+We have a budget of $C = 20000$. After ruling out an investment in bitcoin, our fixed costs are $c_0 = 5000$. So, $D = 15000$. Let $n_1, n_2$ denote the sample size from houses with telephones and without telephones, respectively. Also let $c_1, c_2$ be the cost to sample an individual from each population.  Using the formula from the lecture notes and $c_1 = c_2 = 30$, with the assumption that $S_1 \approx S_2$ we obtain 
+
+$$
+\begin{aligned}
+n_h 
+&= D\left( \frac{N_hS_h/(N\sqrt{c_h})}{\frac{1}{N}\sum_{l=1}^H N_hS_h\sqrt{c_h}} \right) \quad \text{recall }N_1 = .90N \\
+&\implies n_1 = 15000\left( \frac{.90S_1/\sqrt{30}}{.90S_1\sqrt{30} + .10S_2\sqrt{30}} \right) = 450\\
+&\implies n_2 = 15000\left( \frac{.10S_2/\sqrt{30}}{.90S_1\sqrt{30} + .10S_2\sqrt{30}} \right) = 50
+\end{aligned}
+$$  
+
+##### (b) households with phone interviewed by phone, in-person for the rest   
+
+We use the same formula, but $c_1 = 10, c_2 = 40$. 
+
+
+$$
+\begin{aligned}
+& n_1 = 15000 \left(\frac{.90S_1/\sqrt{10}}{.90S_1\sqrt{10} + .10S_2\sqrt{40}} \right) \approx 1227 \\
+& n_2 = 15000 \left(\frac{.10S_2/\sqrt{40}}{.90S_1\sqrt{10} + .10S_2\sqrt{40}} \right) \approx 68
+\end{aligned}
+$$  
+
+We have rounded down the values above to be sure of our budget. This means we come in under budget. The remaining ten dollars we can then bet on red or spend to acquire one more sample by phone. 
+
+#### (3) Lohr, Chapter 3 Problem 16
+
+```{r readingOtterData, echo=FALSE}
+otters = read.csv("otters.csv")
+```
+
+##### (a) Total Otter Dens in Shetland
+
+Our opening move is to imput the data into the `survey` package, a package which we now recognize as a divine gift to survey researchers. 
+
+```{r surveyDesign}
+N.otters = 237
+n.otters = 82
+N_1.otters = 89
+N_2.otters = 61
+N_3.otters = 40
+N_4.otters = 47
+n_1.otters = nrow(otters %>% filter(habitat == 1))
+n_2.otters = nrow(otters %>% filter(habitat == 2))
+n_3.otters = nrow(otters %>% filter(habitat == 3))
+n_4.otters = nrow(otters %>% filter(habitat == 4))
+wts.otters = rep(NA, n.otters)
+wts.otters[otters$habitat == 1] = N_1.otters/n_1.otters
+wts.otters[otters$habitat == 2] = N_2.otters/n_2.otters
+wts.otters[otters$habitat == 3] = N_3.otters/n_3.otters
+wts.otters[otters$habitat == 4] = N_4.otters/n_4.otters
+fpc.otters = rep(NA, n.otters)
+fpc.otters[otters$habitat == 1] = N_1.otters
+fpc.otters[otters$habitat == 2] = N_2.otters
+fpc.otters[otters$habitat == 3] = N_3.otters
+fpc.otters[otters$habitat == 4] = N_4.otters
+svy.otters = svydesign(~1, strata = ~habitat, data = otters, 
+                       weights = wts.otters, fpc = fpc.otters)
+``` 
+
+Now we proceed with the questions. Praise be to the `survey` package. 
+
+```{r estimatingTotal}
+total.otters = svytotal(~holts, svy.otters) 
+knitr::kable(data.frame(total.otters), col.names = c("Estimated Total", "Standard Error"),
+             row.names = FALSE, caption = "Total Number of Otter Dens on Schetland Coast")
+```  
+
+##### (b) Possible Bias 
+
+For measurement bias, taking a 110-m-wide strip may not be wide enough; what defines 'along the coastline' is somewhat arbitrary. For selection bias, I don't know much about otters, but we might want to break down the strata further based on proximity to civilization. An over- or under-estimate could result if our sample contains disproportionately few or many areas of high human population.  
+
+#### (4) Lohr, Chapter 3 Problem 34 parts a, b, c
+
+```{r readTrucksData, echo=FALSE}
+trucks = read.csv("trucks.csv")
+names(trucks) = tolower(names(trucks))
+```
+
+##### (a) Total Trucks in USA
+
+Without the total size of the population, it's fortunate that we have the weights included in the data. We are going to add a variable called `existence` to the data, just so we can use the survey package to answer this question. One can think of this variable as an answer to, 'does this truck exist?' Essentially, we want to accomplish the calculation 
+
+$$
+N = \sum_{h=1}^H N_h = \sum_{h=1}^H n_h\frac{N_h}{n_h} = \sum_{h=1}^H n_hw_h = \sum_{h=1}^Hw_h\sum_{i=1}^{n_h}\text{existence}_i
+$$
+
+```{r totalTrucks}
+wts.trucks = trucks$tabtrucks
+trucks = trucks %>% mutate(existence = 1) 
+svy.trucks = svydesign(~1, strata = ~stratum, data = trucks,
+                       weights = wts.trucks)
+total.trucks = svytotal(~existence, design = svy.trucks)
+```
+
+```{r trucksTable, echo=FALSE}
+knitr::kable(data.frame(total.trucks),
+             col.names = c("Estimated Total", "Standard Error"),
+             caption = "Total Number of Trucks in the USA", 
+             row.names = FALSE)
+```  
+
+The standard error is 0 since we are working with entirely fixed quanitities, $n_h, N_h,$ and `existence`. There is not going to be a truck in the survey that does not exist. 
+
+##### (b) Total Truck Miles, 2002
+
+```{r totalMiles}
+miles_total.trucks = svytotal(~miles_annl, svy.trucks)
+miles_confi.trucks = confint(miles_total.trucks) 
+```
+
+```{r tableTotalMiles, echo=FALSE}
+table_4b = data.frame(miles_total.trucks[1],
+                      miles_confi.trucks[1],
+                      miles_confi.trucks[2])
+knitr::kable(table_4b, col.names = c("Estimated Total", "2.5%", "97.5%"),
+             caption = "Total Truck Miles Driven in 2002", row.names = FALSE)
+```  
+
+##### (c) Total Miles by Truck Type
+
+```{r totalByType}
+truckTypes = unique(trucks$trucktype)
+total_byTruck = matrix(NA, nrow = length(truckTypes), ncol = 3)
+for (type in truckTypes){
+  svy.subtruck = subset(svy.trucks, trucktype == type)
+  total_miles.trucktype = svytotal(~miles_life, svy.subtruck)
+  confi_miles.trucktype = confint(total_miles.trucktype)
+  total_byTruck[type,] = c(total_miles.trucktype[1],
+                           confi_miles.trucktype[1],
+                           confi_miles.trucktype[2])
+}
+total_byTruck = data.frame(total_byTruck)
+```
+
+```{r tableByType, echo=FALSE}
+rownames(total_byTruck) = 1:5
+knitr::kable(total_byTruck,
+             col.names = c("Estimated Total", "2.5%", "97.5&"),
+             caption = "Total Lifetime Miles Driven by Type of Truck", 
+             row.names = TRUE)
+```
+
