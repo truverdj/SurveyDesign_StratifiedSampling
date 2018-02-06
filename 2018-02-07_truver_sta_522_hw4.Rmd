@@ -131,7 +131,7 @@ otters = read.csv("otters.csv")
 
 ##### (a) Total Otter Dens in Shetland
 
-Our opening move is to imput the data into the `survey` package, a package which we now recognize as a divine gift to survey researchers. 
+Our opening move is to input the data into the `survey` package, a package which we now recognize as a divine gift to survey researchers. 
 
 ```{r surveyDesign}
 N.otters = 237
@@ -163,7 +163,8 @@ Now we proceed with the questions. Praise be to the `survey` package.
 ```{r estimatingTotal}
 total.otters = svytotal(~holts, svy.otters) 
 knitr::kable(data.frame(total.otters), col.names = c("Estimated Total", "Standard Error"),
-             row.names = FALSE, caption = "Total Number of Otter Dens on Schetland Coast")
+             row.names = FALSE, caption = "Total Number of Otter Dens on Schetland Coast",
+             digits = 2)
 ```  
 
 ##### (b) Possible Bias 
@@ -214,7 +215,7 @@ table_4b = data.frame(miles_total.trucks[1],
                       miles_confi.trucks[1],
                       miles_confi.trucks[2])
 knitr::kable(table_4b, col.names = c("Estimated Total", "2.5%", "97.5%"),
-             caption = "Total Truck Miles Driven in 2002", row.names = FALSE)
+             caption = "Total Truck Miles Driven in 2002", row.names = FALSE, digits = 3)
 ```  
 
 ##### (c) Total Miles by Truck Type
@@ -238,6 +239,114 @@ rownames(total_byTruck) = 1:5
 knitr::kable(total_byTruck,
              col.names = c("Estimated Total", "2.5%", "97.5&"),
              caption = "Total Lifetime Miles Driven by Type of Truck", 
-             row.names = TRUE)
+             row.names = TRUE, digits = 2)
 ```
+
+#### (5) Another Friend Does Something Wrong
+
+##### (a) Inclusion Probability
+
+For individual $i$ in stratum $h$, the inclusion probability is
+
+$$
+Pr(I_{hi} = 1) = \frac{n_h}{N_h}.
+$$  
+
+##### (b) Expected Value of Friend's Estimator
+
+$$
+\begin{aligned}
+E(\tilde{y}) 
+&= E\left( \sum_{h=1}^H\sum_{i = 1}^{n_h} \frac{y_{hi}}{n} \right) \\
+&= \frac{1}{n}\sum_{h=1}^HE\left( \sum_{i = 1}^{n_h} y_{hi} \right) \\
+&= \frac{1}{n}\sum_{h=1}^H \sum_{i=1}^{N_h} y_{hi} E(I_{hi}) \\
+&= \frac{1}{n}\sum_{h=1}^H \sum_{i=1}^{N_h} y_{hi} \frac{n_h}{N_h} \\
+&= \frac{1}{n}\sum_{h=1}^H\frac{n_h}{N_h} \sum_{i=1}^{N_h} y_{hi}  \\
+&= \frac{1}{n}\sum_{h=1}^H n_h \bar{Y_h}
+\end{aligned}
+$$
+
+##### (c) Bias of Estimator
+
+The estimator $\tilde{y}$ is generally biased. It's bias is given by 
+$$
+\text{Bias}(\tilde{y}) = \frac{1}{n}\sum_{h=1}^H n_h \bar{Y_h} - \frac{1}{N}\sum_{h=1}^H N_h \bar{Y_h}.
+$$
+
+This tells us, however, that $\tilde{y}$ will be unbiased in the special case that $n_h/n = N_h/N$. That is, it will be unbiased when the stratum sample is proportional in size to the size of the stratum. 
+
+#### (6) Simulation Study  
+
+##### (a) Growing the Population  
+
+```{r growPopulation}
+H = 3
+N_1 = 50000
+group1 = rnorm(N_1, mean = 10, sd = 5)
+N_2 = 35000
+group2 = rnorm(N_2, mean = 40, sd = 2)
+N_3 = 15000
+group3 = rnorm(N_3, mean = 100, sd = 20)
+population = data.frame(
+  strat = c(rep(1, N_1), rep(2,N_2), rep(3,N_3)),
+  value = c(group1, group2, group3)
+  )
+N = sum(N_1, N_2, N_3)
+```
+
+#### (b) Optimal Allocation of Sample Size
+
+We will use the allocation formula from class with $n = 200$ and the values given above for each $S_h$.
+
+$$
+n_h = n\frac{N_hS_h/N}{\sum_{l=1}^3N_lS_l/N}
+$$ 
+
+When we perform the calculation below, we get non-integer results. Unfortunately, all of them would round up, which would put us at a sample size of 201. Instead, we round up only the two that are closest to the next greatest integer. 
+
+```{r calculationStratumSampleSize}
+n = 200
+denom = sum(N_1*5/N, N_2*2/N, N_3*20/N)
+n_1 = ceiling(n*(N_1*5/N)/denom)
+n_2 = floor(n*(N_2*2/N)/denom)
+n_3 = ceiling(n*(N_3*20/N)/denom)
+cat("n_1 =",n_1,
+    "\nn_2 =", n_2,
+    "\nn_3 =", n_3)
+```  
+
+##### (c) Running the Simulation
+
+```{r runSimulation, cache=TRUE}
+# first, some QOL enhancements 
+population = population %>%
+  mutate(p_inclusion = ifelse(strat == 1, n_1/N_1,
+                              ifelse(strat == 2, n_2/N_2, n_3/N_3))) %>%
+  mutate(weight = 1/p_inclusion) 
+# now onto the calculation
+set.seed(2018)
+nsim = 1000
+res.sim = data.frame(HT = rep(NA, nsim), AVG = rep(NA, nsim))
+for (t in 1:nsim){
+  samp1 = sample_n(population %>% filter(strat == 1), n_1)
+  samp2 = sample_n(population %>% filter(strat == 2), n_2)
+  samp3 = sample_n(population %>% filter(strat == 3), n_3)
+  horvitz.thompson = sum(samp1$value * samp1$weight,
+                         samp2$value * samp2$weight,
+                         samp3$value * samp3$weight) * (1/N)
+  average = mean(c(samp1$value,
+                   samp2$value,
+                   samp3$value))
+  res.sim$HT[t] = horvitz.thompson
+  res.sim$AVG[t] = average
+}
+res = apply(res.sim, 2, mean)
+knitr::kable(data.frame(res["HT"], res["AVG"], mean(population$value)), 
+             col.names = c("Avg. Horvitz-Thompson", "Avg. Sample Mean", "Real Population Mean"),
+             digits = 2, row.names = FALSE)
+```
+
+##### (d) Empirical Results
+
+The sample mean is a poor estimator of the population mean, by the results for this survey. Bias in the sample mean is possible (shown analytically in part (5) and empirically here), and we should rely first on the Horvitz-Thompson estimator. 
 
